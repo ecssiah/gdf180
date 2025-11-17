@@ -1,0 +1,20 @@
+# Unreal assets
+Content/**
+
+# Generated intermediates
+Intermediate/
+DerivedDataCache/
+Saved/
+Build/
+
+# IDE files
+.vscode/
+.idea/
+*.sln
+*.xcworkspace
+
+# Mac
+.DS_Store
+
+# Binaries
+Binaries/
