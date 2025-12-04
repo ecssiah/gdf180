@@ -45,49 +45,53 @@ TObjectPtr<UStaticMesh> FStaticMeshConstructor::Run(
 
     for (int32 i { 0 }; i < RenderData.IndexArray.Num(); i += 3)
     {
+        const int32 Vertex0Index { RenderData.IndexArray[i + 0] }; 
+        const int32 Vertex1Index { RenderData.IndexArray[i + 1] }; 
+        const int32 Vertex2Index { RenderData.IndexArray[i + 2] }; 
+        
         const FVertexInstanceID VertexInstanceID0 { 
-            MeshDescription.CreateVertexInstance(VertexMap[RenderData.IndexArray[i + 0]]) 
+            MeshDescription.CreateVertexInstance(VertexMap[Vertex0Index]) 
         };
         
         const FVertexInstanceID VertexInstanceID1 { 
-            MeshDescription.CreateVertexInstance(VertexMap[RenderData.IndexArray[i + 1]]) 
+            MeshDescription.CreateVertexInstance(VertexMap[Vertex1Index]) 
         };
         
         const FVertexInstanceID VertexInstanceID2 { 
-            MeshDescription.CreateVertexInstance(VertexMap[RenderData.IndexArray[i + 2]]) 
+            MeshDescription.CreateVertexInstance(VertexMap[Vertex2Index]) 
         };
 
         Attributes.GetVertexInstanceUVs().Set(
             VertexInstanceID0, 
             0, 
-            RenderData.UVArray[RenderData.IndexArray[i + 0]]
+            RenderData.UVArray[Vertex0Index]
         );
         
         Attributes.GetVertexInstanceUVs().Set(
             VertexInstanceID1, 
             0, 
-            RenderData.UVArray[RenderData.IndexArray[i + 1]]
+            RenderData.UVArray[Vertex1Index]
         );
         
         Attributes.GetVertexInstanceUVs().Set(
             VertexInstanceID2, 
             0, 
-            RenderData.UVArray[RenderData.IndexArray[i + 2]]
+            RenderData.UVArray[Vertex2Index]
         );
         
         Attributes.GetVertexInstanceColors().Set(
             VertexInstanceID0, 
-            RenderData.VertexColorArray[RenderData.IndexArray[i + 0]]
+            RenderData.VertexColorArray[Vertex0Index]
         );
         
         Attributes.GetVertexInstanceColors().Set(
             VertexInstanceID1, 
-            RenderData.VertexColorArray[RenderData.IndexArray[i + 1]]
+            RenderData.VertexColorArray[Vertex1Index]
         );
         
         Attributes.GetVertexInstanceColors().Set(
             VertexInstanceID2, 
-            RenderData.VertexColorArray[RenderData.IndexArray[i + 2]]
+            RenderData.VertexColorArray[Vertex2Index]
         );
 
         TArray InstanceArray { VertexInstanceID0, VertexInstanceID1, VertexInstanceID2 };
