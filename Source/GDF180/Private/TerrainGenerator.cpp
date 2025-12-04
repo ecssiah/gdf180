@@ -330,7 +330,7 @@ void ATerrainGenerator::UpdateVisibleSectors()
 
 FIntPoint ATerrainGenerator::GetPlayerSector() const
 {
-	const APawn* PlayerPawn { GetWorld()->GetFirstPlayerController()->GetPawn() };
+	const TObjectPtr PlayerPawn { GetWorld()->GetFirstPlayerController()->GetPawn() };
 	const FVector Location { PlayerPawn->GetActorLocation() };
 
 	const FIntPoint SectorPosition {
@@ -372,9 +372,9 @@ void ATerrainGenerator::AddMissingSectors(const TSet<FIntPoint>& VisibleSectorCo
 	{
 		TObjectPtr<USectorComponent> SectorComponent;
 
-		if (const TObjectPtr<USectorComponent>* SectorComponentPtr { ActiveSectorMap.Find(SectorCoordinates) })
+		if (const TObjectPtr<USectorComponent>* FindResult { ActiveSectorMap.Find(SectorCoordinates) })
 		{
-			SectorComponent = *SectorComponentPtr;            
+			SectorComponent = *FindResult;      
 		}
 		else
 		{
@@ -408,7 +408,7 @@ void ATerrainGenerator::AddMissingSectors(const TSet<FIntPoint>& VisibleSectorCo
 			StaticMeshMap.Add(SectorCoordinates, SectorMeshes);
 		}
 		
-		UMaterialInterface* ActiveGroundMaterial;
+		TObjectPtr<UMaterialInterface> ActiveGroundMaterial;
 		
 		if (TerrainConfig->bDebugBiomes)
 		{
