@@ -6,13 +6,14 @@
 
 struct FSectorRenderData
 {
-	FIntPoint Coordinates;
-	FMeshRenderData Ground;
-	FMeshRenderData Water;
+	FIntPoint SectorCoordinates;
+	
+	FMeshRenderData GroundMeshRenderData;
+	FMeshRenderData WaterMeshRenderData;
 
 	void Clear()
 	{
-		Ground.Clear();
-		Water.Clear();
+		GroundMeshRenderData.Clear();
+		WaterMeshRenderData.Clear();
 	}
 };

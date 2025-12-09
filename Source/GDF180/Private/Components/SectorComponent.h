@@ -14,8 +14,8 @@ class USectorComponent : public USceneComponent
 public:
 	USectorComponent();
 
-	FIntPoint Coordinates;
-	FVector WorldLocation;
+	FIntPoint SectorCoordinates;
+	FVector3f WorldLocation;
 
 	UPROPERTY(VisibleDefaultsOnly)
 	TObjectPtr<UStaticMeshComponent> GroundStaticMeshComponent;
@@ -23,7 +23,7 @@ public:
 	UPROPERTY(VisibleDefaultsOnly)
 	TObjectPtr<UStaticMeshComponent> WaterStaticMeshComponent;
 	
-	void Initialize(const FIntPoint& InCoordinates, const FVector& InWorldLocation);
+	void Initialize(const FIntPoint& InSectorCoordinates, const FVector3f& InWorldLocation);
 	
 protected:
 	virtual void OnRegister() override;

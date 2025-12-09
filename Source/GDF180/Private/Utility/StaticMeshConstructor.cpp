@@ -8,7 +8,7 @@
 TObjectPtr<UStaticMesh> FStaticMeshConstructor::Run(
     UObject* Outer,
     const TCHAR* MeshName,
-    const FMeshRenderData& RenderData,
+    const FMeshRenderData& MeshRenderData,
     const bool bGenerateCollision
 ) {
     TObjectPtr<UStaticMesh> StaticMesh {
@@ -25,29 +25,29 @@ TObjectPtr<UStaticMesh> FStaticMeshConstructor::Run(
     Attributes.Register();
     Attributes.GetVertexInstanceUVs().SetNumChannels(1);
 
-    MeshDescription.ReserveNewVertices(RenderData.VertexArray.Num());
-    MeshDescription.ReserveNewVertexInstances(RenderData.IndexArray.Num());
-    MeshDescription.ReserveNewPolygons(RenderData.IndexArray.Num() / 3);
+    MeshDescription.ReserveNewVertices(MeshRenderData.VertexArray.Num());
+    MeshDescription.ReserveNewVertexInstances(MeshRenderData.IndexArray.Num());
+    MeshDescription.ReserveNewPolygons(MeshRenderData.IndexArray.Num() / 3);
 
     TMap<int32, FVertexID> VertexMap;
-    VertexMap.Reserve(RenderData.VertexArray.Num());
+    VertexMap.Reserve(MeshRenderData.VertexArray.Num());
 
-    for (int32 i { 0 }; i < RenderData.VertexArray.Num(); i++)
+    for (int32 Index { 0 }; Index < MeshRenderData.VertexArray.Num(); Index++)
     {
         FVertexID VertexID { MeshDescription.CreateVertex() };
         
-        Attributes.GetVertexPositions()[VertexID] = RenderData.VertexArray[i];
+        Attributes.GetVertexPositions()[VertexID] = MeshRenderData.VertexArray[Index];
 
-        VertexMap.Add(i, VertexID);
+        VertexMap.Add(Index, VertexID);
     }
-
+    
     const FPolygonGroupID PolygonGroup { MeshDescription.CreatePolygonGroup() };
 
-    for (int32 i { 0 }; i < RenderData.IndexArray.Num(); i += 3)
+    for (int32 Index { 0 }; Index < MeshRenderData.IndexArray.Num(); Index += 3)
     {
-        const int32 Vertex0Index { RenderData.IndexArray[i + 0] }; 
-        const int32 Vertex1Index { RenderData.IndexArray[i + 1] }; 
-        const int32 Vertex2Index { RenderData.IndexArray[i + 2] }; 
+        const int32 Vertex0Index { MeshRenderData.IndexArray[Index + 0] }; 
+        const int32 Vertex1Index { MeshRenderData.IndexArray[Index + 1] }; 
+        const int32 Vertex2Index { MeshRenderData.IndexArray[Index + 2] }; 
         
         const FVertexInstanceID VertexInstanceID0 { 
             MeshDescription.CreateVertexInstance(VertexMap[Vertex0Index]) 
@@ -60,38 +60,38 @@ TObjectPtr<UStaticMesh> FStaticMeshConstructor::Run(
         const FVertexInstanceID VertexInstanceID2 { 
             MeshDescription.CreateVertexInstance(VertexMap[Vertex2Index]) 
         };
-
+        
         Attributes.GetVertexInstanceUVs().Set(
             VertexInstanceID0, 
             0, 
-            RenderData.UVArray[Vertex0Index]
+            MeshRenderData.UVArray[Vertex0Index]
         );
         
         Attributes.GetVertexInstanceUVs().Set(
             VertexInstanceID1, 
             0, 
-            RenderData.UVArray[Vertex1Index]
+            MeshRenderData.UVArray[Vertex1Index]
         );
         
         Attributes.GetVertexInstanceUVs().Set(
             VertexInstanceID2, 
             0, 
-            RenderData.UVArray[Vertex2Index]
+            MeshRenderData.UVArray[Vertex2Index]
         );
         
         Attributes.GetVertexInstanceColors().Set(
             VertexInstanceID0, 
-            RenderData.VertexColorArray[Vertex0Index]
+            MeshRenderData.VertexColorArray[Vertex0Index]
         );
         
         Attributes.GetVertexInstanceColors().Set(
             VertexInstanceID1, 
-            RenderData.VertexColorArray[Vertex1Index]
+            MeshRenderData.VertexColorArray[Vertex1Index]
         );
         
         Attributes.GetVertexInstanceColors().Set(
             VertexInstanceID2, 
-            RenderData.VertexColorArray[Vertex2Index]
+            MeshRenderData.VertexColorArray[Vertex2Index]
         );
 
         TArray InstanceArray { VertexInstanceID0, VertexInstanceID1, VertexInstanceID2 };
@@ -132,15 +132,7 @@ TObjectPtr<UStaticMesh> FStaticMeshConstructor::Run(
         StaticMesh->GetBodySetup()->CreatePhysicsMeshes();
     }
 
-    const bool bSuppressed { StaticMesh->MarkPackageDirty() };
+    const bool _ { StaticMesh->MarkPackageDirty() };
 
-    UE_LOG(
-        LogTemp,
-        Log,
-        TEXT("%s update suppressed: %s"),
-        MeshName,
-        bSuppressed ? TEXT("true") : TEXT("false")
-    );
-    
     return StaticMesh;
 }

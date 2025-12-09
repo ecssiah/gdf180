@@ -18,9 +18,9 @@ USectorComponent::USectorComponent()
 	WaterStaticMeshComponent->SetMobility(EComponentMobility::Movable);
 }
 
-void USectorComponent::Initialize(const FIntPoint& InCoordinates, const FVector& InWorldLocation)
+void USectorComponent::Initialize(const FIntPoint& InSectorCoordinates, const FVector3f& InWorldLocation)
 {
-	Coordinates = InCoordinates;
+	SectorCoordinates = InSectorCoordinates;
 	WorldLocation = InWorldLocation;
 }
 

@@ -5,6 +5,7 @@
 #include "Components/SkyLightComponent.h"
 #include "../ThirdParty/FastNoiseLite/FastNoiseLite.h"
 #include "Components/SectorComponent.h"
+#include "Data/BiomeSet.h"
 #include "Data/SectorMeshes.h"
 #include "Data/SectorRenderData.h"
 #include "Data/TerrainConfig.h"
@@ -21,15 +22,15 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Terrain")
 	TObjectPtr<UTerrainConfig> TerrainConfig;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Terrain")
+	TObjectPtr<UBiomeSet> BiomeSet;
 
 	UPROPERTY(EditAnywhere, Category = "Terrain")
-	TObjectPtr<UMaterialInterface> GroundMaterial;
+	TObjectPtr<UMaterialInterface> TerrainMaterial;
 	
 	UPROPERTY(EditAnywhere, Category = "Terrain")
 	TObjectPtr<UMaterialInterface> WaterMaterial;
-	
-	UPROPERTY(EditAnywhere, Category = "Terrain")
-	TObjectPtr<UMaterialInterface> BiomesMaterial;
 	
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USkyLightComponent> SkyLightComponent;
@@ -46,6 +47,9 @@ private:
 
 	const FNoiseGroup* TerrainNoiseGroup;
 	const FNoiseGroup* WaterNoiseGroup;
+	
+	static constexpr int32 ViewRadius { 1 };
+	static const FIntPoint NeighborOffsetArray[4];
 
 	UPROPERTY()
 	TMap<FIntPoint, TObjectPtr<USectorComponent>> ActiveSectorMap;
@@ -56,18 +60,19 @@ private:
 	TMap<FIntPoint, FSectorMeshes> StaticMeshMap;
 	
 	static TObjectPtr<UTerrainConfig> LoadTerrainConfig(const TCHAR* Path);
+	static TObjectPtr<UBiomeSet> LoadBiomeSet(const TCHAR* Path);
 	static TObjectPtr<UMaterialInterface> LoadMaterial(const TCHAR* Path);
 	static const FNoiseGroup* LoadNoiseGroup(const FString& Name, const TArray<FNoiseGroup>& NoiseGroupArray);
 
 	void SetupSkyLightComponent();
 	void SetupNoiseGeneration();
 
-	TObjectPtr<USectorComponent> GenerateSector(const FIntPoint Coordinates);
+	TObjectPtr<USectorComponent> GenerateSector(const FIntPoint SectorCoordinates);
 	
-	void GenerateSectorRenderData(const FIntPoint& Coordinates, const TObjectPtr<USectorComponent> Sector);
+	void GenerateSectorRenderData(const TObjectPtr<USectorComponent> SectorComponent);
 	
-	uint8 ComputeBiomeIndex(const FVector2f WorldPosition) const;
-	float SampleTerrainHeight(const FVector2f WorldPosition, const FNoiseGroup* NoiseGroup);
+	float SampleHeight(const FVector2f WorldPosition, const FNoiseGroup* NoiseGroup);
+	uint8 SampleBiomeIndex(const FVector2f& WorldPosition) const;
 
 	FIntPoint GetPlayerSector() const;
 	
@@ -76,4 +81,7 @@ private:
 	void AddMissingSectors(const TSet<FIntPoint>& VisibleSectorCoordinatesSet);
 	void RemoveExpiredSectors(const TSet<FIntPoint>& VisibleSectorCoordinatesSet);
 	void UpdateVisibleSectors();
+	
+	int32 GetVertexIndex(const FIntPoint GridPosition) const;
+	std::tuple<bool, uint8> GetSecondaryBiomeIndex(const FIntPoint GridPosition, const TObjectPtr<USectorComponent> SectorComponent);
 };

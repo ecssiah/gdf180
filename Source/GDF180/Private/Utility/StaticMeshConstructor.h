@@ -12,7 +12,7 @@ struct FStaticMeshConstructor
 	static TObjectPtr<UStaticMesh> Run(
 		UObject* Outer,
 		const TCHAR* MeshName,
-		const FMeshRenderData& RenderData,
+		const FMeshRenderData& MeshRenderData,
 		const bool bGenerateCollision = false
 	);
 };
