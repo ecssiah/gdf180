@@ -49,17 +49,9 @@ TObjectPtr<UStaticMesh> FStaticMeshConstructor::Run(
         const int32 Vertex1Index { MeshRenderData.IndexArray[Index + 1] }; 
         const int32 Vertex2Index { MeshRenderData.IndexArray[Index + 2] }; 
         
-        const FVertexInstanceID VertexInstanceID0 { 
-            MeshDescription.CreateVertexInstance(VertexMap[Vertex0Index]) 
-        };
-        
-        const FVertexInstanceID VertexInstanceID1 { 
-            MeshDescription.CreateVertexInstance(VertexMap[Vertex1Index]) 
-        };
-        
-        const FVertexInstanceID VertexInstanceID2 { 
-            MeshDescription.CreateVertexInstance(VertexMap[Vertex2Index]) 
-        };
+        const FVertexInstanceID VertexInstanceID0 { MeshDescription.CreateVertexInstance(VertexMap[Vertex0Index]) };
+        const FVertexInstanceID VertexInstanceID1 { MeshDescription.CreateVertexInstance(VertexMap[Vertex1Index]) };
+        const FVertexInstanceID VertexInstanceID2 { MeshDescription.CreateVertexInstance(VertexMap[Vertex2Index]) };
         
         Attributes.GetVertexInstanceUVs().Set(
             VertexInstanceID0, 

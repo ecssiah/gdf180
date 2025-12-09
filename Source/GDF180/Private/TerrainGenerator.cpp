@@ -1,10 +1,9 @@
 #include "TerrainGenerator.h"
 
-#include "GPUSkinVertexFactory.h"
 #include "Engine/TextureCube.h"
 #include "Utility/StaticMeshConstructor.h"
 
-const FIntPoint ATerrainGenerator::NeighborOffsetArray[4] = {
+const FIntPoint ATerrainGenerator::NeighborOffsetArray[4] {
 	{ -1,  0 },
 	{  1,  0 },
 	{  0, -1 },
@@ -177,9 +176,9 @@ TObjectPtr<USectorComponent> ATerrainGenerator::GenerateSector(const FIntPoint S
 		)
 	};
 
-	AddInstanceComponent(NewSectorComponent);
+	AddInstanceComponent(NewSectorComponent.Get());
 	
-	NewSectorComponent->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+	NewSectorComponent->AttachToComponent(RootComponent.Get(), FAttachmentTransformRules::KeepRelativeTransform);
 	NewSectorComponent->SetRelativeLocation(FVector { WorldLocation });
 	NewSectorComponent->RegisterComponent();
 	NewSectorComponent->Initialize(SectorCoordinates, WorldLocation);
@@ -276,9 +275,12 @@ void ATerrainGenerator::GenerateSectorRenderData(const TObjectPtr<USectorCompone
 		for (int32 X { 0 }; X <= TerrainConfig->SectorSizeInCells; ++X)
 		{
 			const FIntPoint GridPosition { X, Y };
-			const int32 VertexIndex = GetVertexIndex(GridPosition);
+			const int32 VertexIndex { GetVertexIndex(GridPosition) };
 			
-			const auto [bIsBoundary, SecondaryBiomeIndex] = GetSecondaryBiomeIndex(GridPosition, SectorComponent);
+			const auto [bIsBoundary, SecondaryBiomeIndex]
+			{
+				GetSecondaryBiomeIndex(GridPosition, SectorComponent)
+			};
 			
 			SectorRenderData.GroundMeshRenderData.BoundaryMaskArray[VertexIndex] = bIsBoundary ? 1 : 0;
 			SectorRenderData.GroundMeshRenderData.SecondaryBiomeIndexArray[VertexIndex] = SecondaryBiomeIndex;
@@ -404,7 +406,7 @@ void ATerrainGenerator::AddMissingSectors(const TSet<FIntPoint>& VisibleSectorCo
 		
 		if (!StaticMeshMap.Contains(SectorComponent->SectorCoordinates))
 		{
-			FSectorRenderData& SectorRenderData = SectorRenderDataMap[SectorComponent->SectorCoordinates];
+			FSectorRenderData& SectorRenderData { SectorRenderDataMap[SectorComponent->SectorCoordinates] };
 			
 			FSectorMeshes SectorMeshes {
 				FStaticMeshConstructor::Run(
@@ -424,19 +426,26 @@ void ATerrainGenerator::AddMissingSectors(const TSet<FIntPoint>& VisibleSectorCo
 			StaticMeshMap.Add(SectorComponent->SectorCoordinates, SectorMeshes);
 		}
 		
-		const auto& [GroundStaticMesh, WaterStaticMesh] = StaticMeshMap[SectorComponent->SectorCoordinates];
+		const auto& [GroundStaticMesh, WaterStaticMesh]
+		{
+			StaticMeshMap[SectorComponent->SectorCoordinates]
+		};
 		
-		SectorComponent->GroundStaticMeshComponent->SetStaticMesh(GroundStaticMesh);
+		SectorComponent->GroundStaticMeshComponent->SetStaticMesh(GroundStaticMesh.Get());
 		SectorComponent->GroundStaticMeshComponent->SetRelativeLocation(FVector::ZeroVector);
-		SectorComponent->GroundStaticMeshComponent->SetMaterial(0, TerrainMaterial);
+		SectorComponent->GroundStaticMeshComponent->SetMaterial(0, TerrainMaterial.Get());
 		SectorComponent->GroundStaticMeshComponent->MarkRenderStateDirty();
 		
-		UMaterialInstanceDynamic* TerrainMaterialInstance = SectorComponent->GroundStaticMeshComponent->CreateDynamicMaterialInstance(0);
+		UMaterialInstanceDynamic* TerrainMaterialInstance 
+		{ 
+			SectorComponent->GroundStaticMeshComponent->CreateDynamicMaterialInstance(0) 
+		};
+		
 		TerrainMaterialInstance->SetScalarParameterValue(TEXT("BiomeIndexMax"), BiomeSet->BiomeDefinitionArray.Num() - 1);
 		
-		SectorComponent->WaterStaticMeshComponent->SetStaticMesh(WaterStaticMesh);
+		SectorComponent->WaterStaticMeshComponent->SetStaticMesh(WaterStaticMesh.Get());
 		SectorComponent->WaterStaticMeshComponent->SetRelativeLocation(FVector::ZeroVector);
-		SectorComponent->WaterStaticMeshComponent->SetMaterial(0, WaterMaterial);
+		SectorComponent->WaterStaticMeshComponent->SetMaterial(0, WaterMaterial.Get());
 		SectorComponent->WaterStaticMeshComponent->SetTranslucentSortPriority(1);
 		SectorComponent->WaterStaticMeshComponent->SetCastShadow(false);
 		SectorComponent->WaterStaticMeshComponent->SetReceivesDecals(false);
@@ -501,8 +510,8 @@ std::tuple<bool, uint8> ATerrainGenerator::GetSecondaryBiomeIndex(const FIntPoin
 {
 	FSectorRenderData& SectorRenderData { SectorRenderDataMap.FindOrAdd(SectorComponent->SectorCoordinates) };
 	
-	const int32 VertexIndex = GetVertexIndex(GridPosition);
-	const uint8 PrimaryBiomeIndex = SectorRenderData.GroundMeshRenderData.PrimaryBiomeIndexArray[VertexIndex];
+	const int32 VertexIndex { GetVertexIndex(GridPosition) };
+	const uint8 PrimaryBiomeIndex { SectorRenderData.GroundMeshRenderData.PrimaryBiomeIndexArray[VertexIndex] };
 	
 	for (const auto& NeighborOffset: NeighborOffsetArray)
 	{
@@ -517,10 +526,10 @@ std::tuple<bool, uint8> ATerrainGenerator::GetSecondaryBiomeIndex(const FIntPoin
 			continue;
 		}
 		
-		const int32 NeighborVertexIndex = GetVertexIndex(NeighborPosition);
+		const int32 NeighborVertexIndex { GetVertexIndex(NeighborPosition) };
 		
 		if (
-			const uint8 NeighborBiomeIndex = SectorRenderData.GroundMeshRenderData.PrimaryBiomeIndexArray[NeighborVertexIndex]; 
+			const uint8 NeighborBiomeIndex { SectorRenderData.GroundMeshRenderData.PrimaryBiomeIndexArray[NeighborVertexIndex] }; 
 			NeighborBiomeIndex != PrimaryBiomeIndex)
 		{
 			return { true, NeighborBiomeIndex };
