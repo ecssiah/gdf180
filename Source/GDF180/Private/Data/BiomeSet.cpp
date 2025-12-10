@@ -7,27 +7,27 @@ UBiomeSet::UBiomeSet()
 	BiomeDefinitionArray { 
 		{
 			{
-				TEXT("b0_grass"),
+				TEXT("moss"),
 				{ 0.0f, 1.0f, 0.0f, 1.0f },
 			},
 			{
-				TEXT("b1_moss"),
+				TEXT("sand"),
 				{ 0.0f, 0.5f, 0.2f, 1.0f },
 			},
 			{
-				TEXT("b2_lichen"),
+				TEXT("redsand"),
 				{ 0.2f, 0.2f, 0.2f, 1.0f },
 			},
 			{
-				TEXT("b3_redsands"),
+				TEXT("rock"),
 				{ 0.8f, 0.0f, 0.2f, 1.0f },
 			},
 			{
-				TEXT("b4_mountain"),
+				TEXT("lichen"),
 				{ 0.8f, 0.8f, 0.8f, 1.0f },
 			},
 			{
-				TEXT("b5_snow"),
+				TEXT("snow"),
 				{ 1.0f, 1.0f, 1.0f, 1.0f },
 			},
 		} 

@@ -517,36 +517,46 @@ uint8 ATerrainGenerator::SampleBiomeIndex(const FVector2f& WorldPosition)
 		0.5f * (BiomeNoise.GetNoise(WorldPosition.X, WorldPosition.Y) + 1.0f)
 	};
 
-	float TotalWeight { 0.0f };
-	
+	TArray<TPair<uint8, float>> Pairs;
 	for (const auto& Pair : RingDefinition.BiomeWeightMap)
 	{
+		Pairs.Add(Pair);
+	}
+
+	// Ensure deterministic order
+	Pairs.Sort([](const TPair<uint8, float>& A, const TPair<uint8, float>& B)
+	{
+		return A.Key < B.Key;
+	});
+
+	float TotalWeight { 0.0f };
+	for (const auto& Pair : Pairs)
+	{
 		TotalWeight += Pair.Value;
+	}
+
+	if (TotalWeight <= KINDA_SMALL_NUMBER)
+	{
+		return Pairs[0].Key;
 	}
 
 	const float Target { R01 * TotalWeight };
 
 	float Accumulator { 0.0f };
-	uint8 BiomeIndex { 0 };
+	uint8 BiomeIndex { Pairs[0].Key };
+	bool bPicked { false };
 
-	for (const auto& Pair : RingDefinition.BiomeWeightMap)
+	for (const auto& Pair : Pairs)
 	{
 		Accumulator += Pair.Value;
 
 		if (Target <= Accumulator)
 		{
 			BiomeIndex = Pair.Key;
+			bPicked = true;
 			break;
 		}
 	}
-
-	if (!RingDefinition.BiomeWeightMap.Contains(BiomeIndex))
-	{
-		BiomeIndex =
-			RingDefinition.BiomeWeightMap.CreateConstIterator()->Key;
-	}
-
-	RegionIDToBiomeIndex.Add(RegionID, BiomeIndex);
 
 	return BiomeIndex;
 }
