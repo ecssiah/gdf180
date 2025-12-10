@@ -32,5 +32,6 @@ public:
 	TArray<FNoiseGroup> NoiseGroupArray;
 
 	float GetSectorSizeInCentimeters() const;
+	float GetWorldSizeInCentimeters() const;
 	uint32 GetSectorCellNum() const;
 };

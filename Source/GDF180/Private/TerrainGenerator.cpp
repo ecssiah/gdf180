@@ -1,5 +1,7 @@
 #include "TerrainGenerator.h"
 #include "Engine/TextureCube.h"
+#include "GameFramework/PlayerStart.h"
+#include "Kismet/GameplayStatics.h"
 #include "Utility/StaticMeshConstructor.h"
 
 const FIntPoint ATerrainGenerator::NeighborOffsetArray[8] {
@@ -46,6 +48,39 @@ void ATerrainGenerator::BeginPlay()
 		0.25f,
 		true
 	);
+	
+	const FVector SpawnLocation { 
+		TerrainConfig->GetWorldSizeInCentimeters() / 2.0f, 
+		TerrainConfig->GetWorldSizeInCentimeters() / 2.0f, 
+		1000.0f 
+	};
+	
+	FActorSpawnParameters ActorSpawnParameters;
+	ActorSpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	const APlayerStart* PlayerStart {
+		GetWorld()->SpawnActor<APlayerStart>(
+			APlayerStart::StaticClass(),
+			SpawnLocation,
+			FRotator::ZeroRotator,
+			ActorSpawnParameters
+		)
+	};
+
+	if (!PlayerStart)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Failed to spawn PlayerStart"));
+		
+		return;
+	}
+
+	if (
+		AActor* PlayerPawn { UGameplayStatics::GetPlayerPawn(GetWorld(), 0) }; 
+		PlayerPawn
+	) {
+		PlayerPawn->SetActorLocation(PlayerStart->GetActorLocation());
+		PlayerPawn->SetActorRotation(PlayerStart->GetActorRotation());
+	}
 }
 
 TObjectPtr<UTerrainConfig> ATerrainGenerator::LoadTerrainConfig(const TCHAR* Path)
@@ -224,6 +259,7 @@ void ATerrainGenerator::GenerateSectorRenderData(const TObjectPtr<USectorCompone
 	        auto AddVertex = [&](const FVector2f& LocalPosition)
 	        {
 	            const FVector2f WorldPosition { SectorWorldPosition + LocalPosition };
+	        	
 	            const float TerrainHeight { SampleHeight(WorldPosition, TerrainNoiseGroup) };
 	        	const float WaterHeight { SampleHeight(WorldPosition, WaterNoiseGroup) };
 	        	

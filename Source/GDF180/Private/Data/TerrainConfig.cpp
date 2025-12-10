@@ -41,6 +41,11 @@ float UTerrainConfig::GetSectorSizeInCentimeters() const
 	return CellSizeInCentimeters * SectorSizeInCells;
 }
 
+float UTerrainConfig::GetWorldSizeInCentimeters() const
+{
+	return WorldSizeInSectors * SectorSizeInCells * CellSizeInCentimeters;
+}
+
 uint32 UTerrainConfig::GetSectorCellNum() const
 {
 	return SectorSizeInCells * SectorSizeInCells;
