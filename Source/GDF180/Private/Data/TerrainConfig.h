@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BiomeDefinition.h"
 #include "NoiseGroup.h"
 #include "TerrainConfig.generated.h"
 
@@ -31,15 +30,7 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TArray<FNoiseGroup> NoiseGroupArray;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	bool bDebugBiomes;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	float BiomePeriod;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TArray<FBiomeDefinition> BiomeDefinitionArray;
 
 	float GetSectorSizeInCentimeters() const;
+	uint32 GetSectorCellNum() const;
 };

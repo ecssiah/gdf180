@@ -49,7 +49,7 @@ private:
 	const FNoiseGroup* WaterNoiseGroup;
 	
 	static constexpr int32 ViewRadius { 1 };
-	static const FIntPoint NeighborOffsetArray[4];
+	static const FIntPoint NeighborOffsetArray[8];
 
 	UPROPERTY()
 	TMap<FIntPoint, TObjectPtr<USectorComponent>> ActiveSectorMap;
@@ -73,7 +73,7 @@ private:
 	
 	float SampleHeight(const FVector2f WorldPosition, const FNoiseGroup* NoiseGroup);
 	uint8 SampleBiomeIndex(const FVector2f& WorldPosition) const;
-
+	
 	FIntPoint GetPlayerSector() const;
 	
 	static TSet<FIntPoint> ComputeVisibleSet(const FIntPoint& PlayerSector, const TObjectPtr<UTerrainConfig> TerrainConfig);
@@ -83,5 +83,5 @@ private:
 	void UpdateVisibleSectors();
 	
 	int32 GetVertexIndex(const FIntPoint GridPosition) const;
-	std::tuple<bool, uint8> GetSecondaryBiomeIndex(const FIntPoint GridPosition, const TObjectPtr<USectorComponent> SectorComponent);
+	std::tuple<float, uint8> GetSecondaryBiomeIndex(const float NoiseNormalized) const;
 };

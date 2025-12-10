@@ -11,6 +11,16 @@ class UBiomeSet : public UDataAsset
 	GENERATED_BODY()
 	
 public:
+	UBiomeSet();
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	bool bDebugBiomes;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	float BiomePeriod;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<FBiomeDefinition> BiomeDefinitionArray;
+	
+	float GetFrequency() const;
 };

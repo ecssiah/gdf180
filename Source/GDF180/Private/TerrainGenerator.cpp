@@ -1,13 +1,12 @@
 #include "TerrainGenerator.h"
-
 #include "Engine/TextureCube.h"
 #include "Utility/StaticMeshConstructor.h"
 
-const FIntPoint ATerrainGenerator::NeighborOffsetArray[4] {
-	{ -1,  0 },
-	{  1,  0 },
-	{  0, -1 },
-	{  0,  1 },
+const FIntPoint ATerrainGenerator::NeighborOffsetArray[8] {
+	{ -1,  0 }, {  1,  0 }, 
+	{  0, -1 }, {  0,  1 },
+	{ -1, -1 }, {  1, -1 }, 
+	{ -1,  1 }, {  1,  1 }
 };
 
 ATerrainGenerator::ATerrainGenerator()
@@ -143,18 +142,17 @@ void ATerrainGenerator::SetupNoiseGeneration()
 	const int32 TerrainSeed { TerrainConfig->Seed };
 	const int32 BiomeSeed { TerrainConfig->Seed + 1 };
 	
+	UE_LOG(LogTemp, Log, TEXT("Terrain Seed: %d"), TerrainSeed);
+	UE_LOG(LogTemp, Log, TEXT("Biome Seed: %d"), BiomeSeed);
+	
 	TerrainNoise.SetSeed(TerrainSeed);
 	TerrainNoise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
 	
-	UE_LOG(LogTemp, Log, TEXT("Terrain Seed: %d"), TerrainSeed);
-	
-	const float BiomeFrequency { 1.0f / TerrainConfig->BiomePeriod };
-	
 	BiomeNoise.SetSeed(BiomeSeed);
-	BiomeNoise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-	BiomeNoise.SetFrequency(BiomeFrequency);
-
-	UE_LOG(LogTemp, Log, TEXT("Biome Seed: %d"), BiomeSeed);
+	BiomeNoise.SetNoiseType(FastNoiseLite::NoiseType_Cellular);
+	BiomeNoise.SetCellularDistanceFunction(FastNoiseLite::CellularDistanceFunction_Euclidean);
+	BiomeNoise.SetCellularReturnType(FastNoiseLite::CellularReturnType_CellValue);
+	BiomeNoise.SetFrequency(BiomeSet->GetFrequency());
 }
 
 TObjectPtr<USectorComponent> ATerrainGenerator::GenerateSector(const FIntPoint SectorCoordinates)
@@ -164,9 +162,9 @@ TObjectPtr<USectorComponent> ATerrainGenerator::GenerateSector(const FIntPoint S
 		return *SectorComponentPointer;
 	}
 	
-	const FVector3f WorldLocation { SectorCoordinates * TerrainConfig->GetSectorSizeInCentimeters() };
-
 	const FName SectorName { *FString::Printf(TEXT("S_%d_%d"), SectorCoordinates.X, SectorCoordinates.Y) };
+	
+	const FVector3f WorldLocation { SectorCoordinates * TerrainConfig->GetSectorSizeInCentimeters() };
 
 	TObjectPtr<USectorComponent> NewSectorComponent {
 		NewObject<USectorComponent>(
@@ -183,7 +181,7 @@ TObjectPtr<USectorComponent> ATerrainGenerator::GenerateSector(const FIntPoint S
 	NewSectorComponent->RegisterComponent();
 	NewSectorComponent->Initialize(SectorCoordinates, WorldLocation);
 
-	ActiveSectorMap.Add(SectorCoordinates, NewSectorComponent);
+	ActiveSectorMap.Add(NewSectorComponent->SectorCoordinates, NewSectorComponent);
 
 	return NewSectorComponent;
 }
@@ -194,121 +192,84 @@ void ATerrainGenerator::GenerateSectorRenderData(const TObjectPtr<USectorCompone
 
 	SectorRenderData.SectorCoordinates = SectorComponent->SectorCoordinates;
 
-	const FVector2f SectorWorldOffset { SectorComponent->WorldLocation.X, SectorComponent->WorldLocation.Y };
+	int32 IndexBase { 0 };
 
-    for (int32 Y { 0 }; Y <= TerrainConfig->SectorSizeInCells; ++Y)
-    {
-        for (int32 X { 0 }; X <= TerrainConfig->SectorSizeInCells; ++X)
-        {
-        	const FVector2f LocalPosition { X * TerrainConfig->CellSizeInCentimeters, Y * TerrainConfig->CellSizeInCentimeters };
-			const FVector2f WorldPosition { SectorWorldOffset + LocalPosition };
-        	
-        	const float TerrainHeight { SampleHeight(WorldPosition, TerrainNoiseGroup) };
-        	const FVector3f TerrainVertexPosition { LocalPosition.X, LocalPosition.Y, TerrainHeight };
-        	
-        	SectorRenderData.GroundMeshRenderData.VertexArray.Add(TerrainVertexPosition);
+	const FVector2f SectorWorldPosition { SectorComponent->WorldLocation.X, SectorComponent->WorldLocation.Y };
 
-        	const float WaterHeight { SampleHeight(WorldPosition, WaterNoiseGroup) + TerrainConfig->WaterLevel };
-        	const FVector3f WaterVertexPosition { LocalPosition.X, LocalPosition.Y, WaterHeight };
-
-        	SectorRenderData.WaterMeshRenderData.VertexArray.Add(WaterVertexPosition);
-
-        	const uint8 BiomeIndex { SampleBiomeIndex(WorldPosition) };
-        	
-        	SectorRenderData.GroundMeshRenderData.PrimaryBiomeIndexArray.Add(BiomeIndex);
-        	
-        	const FVector2f UV {
-        		static_cast<float>(X) / static_cast<float>(TerrainConfig->SectorSizeInCells),
-				static_cast<float>(Y) / static_cast<float>(TerrainConfig->SectorSizeInCells)
-			};
-        	
-        	SectorRenderData.GroundMeshRenderData.UVArray.Add(UV);
-        	SectorRenderData.WaterMeshRenderData.UVArray.Add(UV);
-        	
-        	SectorRenderData.WaterMeshRenderData.VertexColorArray.Add(FLinearColor::White);
-        }
-    }
-
-    for (int32 Y { 0 }; Y < TerrainConfig->SectorSizeInCells; ++Y)
-    {
-        for (int32 X { 0 }; X < TerrainConfig->SectorSizeInCells; ++X)
-        {
-        	const FIntPoint Vertex0GridPosition {X, Y};
-        	const FIntPoint Vertex1GridPosition {X + 1, Y};
-        	const FIntPoint Vertex2GridPosition {X, Y + 1};
-        	const FIntPoint Vertex3GridPosition {X + 1, Y + 1};
-        	
-        	const int32 Vertex0Index { GetVertexIndex(Vertex0GridPosition) };
-        	const int32 Vertex1Index { GetVertexIndex(Vertex1GridPosition) };
-        	const int32 Vertex2Index { GetVertexIndex(Vertex2GridPosition) };
-        	const int32 Vertex3Index { GetVertexIndex(Vertex3GridPosition) };
-
-            SectorRenderData.GroundMeshRenderData.IndexArray.Append({ 
-            	Vertex0Index, 
-            	Vertex2Index, 
-            	Vertex3Index, 
-            	Vertex0Index, 
-            	Vertex3Index, 
-            	Vertex1Index 
-			});
-			
-            SectorRenderData.WaterMeshRenderData.IndexArray.Append({ 
-            	Vertex0Index, 
-            	Vertex2Index, 
-            	Vertex3Index, 
-            	Vertex0Index, 
-            	Vertex3Index, 
-            	Vertex1Index 
-			});
-        }
-    }
-	
-	const int32 BiomeIndexNum { SectorRenderData.GroundMeshRenderData.PrimaryBiomeIndexArray.Num() };
-	const float BiomeIndexMax { static_cast<float>(BiomeSet->BiomeDefinitionArray.Num() - 1) };
-	
-	SectorRenderData.GroundMeshRenderData.BoundaryMaskArray.SetNum(BiomeIndexNum);
-	SectorRenderData.GroundMeshRenderData.SecondaryBiomeIndexArray.SetNum(BiomeIndexNum);
-	SectorRenderData.GroundMeshRenderData.VertexColorArray.SetNum(BiomeIndexNum);
-	
-	for (int32 Y { 0 }; Y <= TerrainConfig->SectorSizeInCells; ++Y)
+	for (int32 Y { 0 }; Y < TerrainConfig->SectorSizeInCells; ++Y)
 	{
-		for (int32 X { 0 }; X <= TerrainConfig->SectorSizeInCells; ++X)
-		{
-			const FIntPoint GridPosition { X, Y };
-			const int32 VertexIndex { GetVertexIndex(GridPosition) };
-			
-			const auto [bIsBoundary, SecondaryBiomeIndex]
-			{
-				GetSecondaryBiomeIndex(GridPosition, SectorComponent)
-			};
-			
-			SectorRenderData.GroundMeshRenderData.BoundaryMaskArray[VertexIndex] = bIsBoundary ? 1 : 0;
-			SectorRenderData.GroundMeshRenderData.SecondaryBiomeIndexArray[VertexIndex] = SecondaryBiomeIndex;
-		}
-	}
-	
-	for (int32 BiomeIndex { 0 }; BiomeIndex < BiomeIndexNum; ++BiomeIndex)
-	{
-		const uint8 PrimaryBiomeIndex { SectorRenderData.GroundMeshRenderData.PrimaryBiomeIndexArray[BiomeIndex] };
-		const uint8 SecondaryBiomeIndex { SectorRenderData.GroundMeshRenderData.SecondaryBiomeIndexArray[BiomeIndex] };
-		
-		const float PrimaryBiomeIndexNormalized { PrimaryBiomeIndex / BiomeIndexMax };
-		const float SecondaryBiomeIndexNormalized { SecondaryBiomeIndex / BiomeIndexMax };
-		
-		const int32 BoundaryMask { SectorRenderData.GroundMeshRenderData.BoundaryMaskArray[BiomeIndex] };
+	    for (int32 X { 0 }; X < TerrainConfig->SectorSizeInCells; ++X)
+	    {
+	        FVector2f VertexPosition00 { X * TerrainConfig->CellSizeInCentimeters, Y * TerrainConfig->CellSizeInCentimeters };
+	        FVector2f VertexPosition10 { (X + 1) * TerrainConfig->CellSizeInCentimeters, Y * TerrainConfig->CellSizeInCentimeters };
+	        FVector2f VertexPosition11 { (X + 1) * TerrainConfig->CellSizeInCentimeters, ( Y+ 1) * TerrainConfig->CellSizeInCentimeters };
+	        FVector2f VertexPosition01 { X * TerrainConfig->CellSizeInCentimeters, (Y + 1) * TerrainConfig->CellSizeInCentimeters };
 
-		const FVector4f VertexColor {
-			PrimaryBiomeIndexNormalized,
-			SecondaryBiomeIndexNormalized,
-			BoundaryMask == 1 ? 1.0f : 0.0f,
-			1.0f
-		};
-		
-		SectorRenderData.GroundMeshRenderData.VertexColorArray[BiomeIndex] = VertexColor;
+	        FVector2f CellWorldPosition { 
+	        	SectorWorldPosition + FVector2f{
+		            (X + 0.5f) * TerrainConfig->CellSizeInCentimeters,
+		            (Y + 0.5f) * TerrainConfig->CellSizeInCentimeters
+		        }
+	        };
+
+	        const uint8 BiomeIndex { SampleBiomeIndex(CellWorldPosition) };
+	        const float BiomeIndexMax { BiomeSet->BiomeDefinitionArray.Num() - 1.0f };
+	    	
+	        const float EncodedBiomeIndex { 
+	        	BiomeIndexMax > 0.0f ? static_cast<float>(BiomeIndex) / BiomeIndexMax : 0.0f
+	        };
+
+	        FVector4f VertexColor { EncodedBiomeIndex, 0, 0, 1 };
+
+	        auto AddVertex = [&](const FVector2f& LocalPosition)
+	        {
+	            const FVector2f WorldPosition { SectorWorldPosition + LocalPosition };
+	            const float TerrainHeight { SampleHeight(WorldPosition, TerrainNoiseGroup) };
+	        	const float WaterHeight { SampleHeight(WorldPosition, WaterNoiseGroup) };
+	        	
+	        	const FVector3f TerrainVertexPosition { LocalPosition.X, LocalPosition.Y, TerrainHeight };
+	        	const FVector3f WaterVertexPosition { LocalPosition.X, LocalPosition.Y, WaterHeight };
+
+	            const FVector2f UV {
+	                LocalPosition.X / (TerrainConfig->SectorSizeInCells * TerrainConfig->CellSizeInCentimeters),
+	                LocalPosition.Y / (TerrainConfig->SectorSizeInCells * TerrainConfig->CellSizeInCentimeters)
+	            };
+
+	            SectorRenderData.GroundMeshRenderData.VertexArray.Add(TerrainVertexPosition);
+	            SectorRenderData.GroundMeshRenderData.UVArray.Add(UV);
+	            SectorRenderData.GroundMeshRenderData.VertexColorArray.Add(VertexColor);
+	        	
+	        	SectorRenderData.WaterMeshRenderData.VertexArray.Add(WaterVertexPosition);
+	        	SectorRenderData.WaterMeshRenderData.UVArray.Add(UV);
+	        	SectorRenderData.WaterMeshRenderData.VertexColorArray.Add(VertexColor);
+	        };
+
+	        int32 Index0 { IndexBase + 0 };
+	        int32 Index1 { IndexBase + 1 };
+	        int32 Index2 { IndexBase + 2 };
+	        int32 Index3 { IndexBase + 3 };
+
+	        AddVertex(VertexPosition00);
+	        AddVertex(VertexPosition10);
+	        AddVertex(VertexPosition11);
+	        AddVertex(VertexPosition01);
+
+	        SectorRenderData.GroundMeshRenderData.IndexArray.Append({
+	            Index0, Index2, Index1,
+	            Index0, Index3, Index2
+	        });
+	    	
+	    	SectorRenderData.WaterMeshRenderData.IndexArray.Append({
+				Index0, Index2, Index1,
+				Index0, Index3, Index2
+			});
+
+	        IndexBase += 4;
+	    }
 	}
 }
 
-float ATerrainGenerator::SampleHeight(const FVector2f WorldPosition,  const FNoiseGroup* NoiseGroup)
+float ATerrainGenerator::SampleHeight(const FVector2f WorldPosition, const FNoiseGroup* NoiseGroup)
 {
 	float NoiseValue { 0.0f };
 
@@ -482,59 +443,25 @@ uint8 ATerrainGenerator::SampleBiomeIndex(const FVector2f& WorldPosition) const
 {
 	const int32 BiomeCount { BiomeSet->BiomeDefinitionArray.Num() };
 	
-	if (BiomeCount == 0)
-	{
-		return 0;
-	}
-
-	const float NoiseValue { BiomeNoise.GetNoise(WorldPosition.X, WorldPosition.Y) };
-	const float NoiseNormalized { (NoiseValue + 1.0f) * 0.5f };
-
-	const int32 BiomeIndex { FMath::Clamp(
-		FMath::FloorToInt(NoiseNormalized * BiomeCount),
-		0,
-		BiomeCount - 1)
+	const float VoronoiLabel { BiomeNoise.GetNoise(WorldPosition.X, WorldPosition.Y) };
+	const float VoronoiLabelNormalized { 0.5f * (VoronoiLabel + 1.0f) };
+	
+	const uint8 BiomeIndex { 
+		static_cast<uint8> (
+			FMath::Clamp(
+				FMath::FloorToInt(VoronoiLabelNormalized * BiomeCount),
+				0,
+				BiomeCount - 1
+			)
+		)
 	};
-
-	return static_cast<uint8>(BiomeIndex);
+	
+	return BiomeIndex;
 }
 
 int32 ATerrainGenerator::GetVertexIndex(const FIntPoint GridPosition) const
 {
-    const int32 VertexCount { TerrainConfig->SectorSizeInCells + 1 };
+    const int32 VerticesPerRow { TerrainConfig->SectorSizeInCells + 1 };
 	
-	return GridPosition.Y * VertexCount + GridPosition.X;
-}
-
-std::tuple<bool, uint8> ATerrainGenerator::GetSecondaryBiomeIndex(const FIntPoint GridPosition, const TObjectPtr<USectorComponent> SectorComponent)
-{
-	FSectorRenderData& SectorRenderData { SectorRenderDataMap.FindOrAdd(SectorComponent->SectorCoordinates) };
-	
-	const int32 VertexIndex { GetVertexIndex(GridPosition) };
-	const uint8 PrimaryBiomeIndex { SectorRenderData.GroundMeshRenderData.PrimaryBiomeIndexArray[VertexIndex] };
-	
-	for (const auto& NeighborOffset: NeighborOffsetArray)
-	{
-		const FIntPoint NeighborPosition { GridPosition + NeighborOffset };
-		
-		if (
-			NeighborPosition.X < 0 || 
-			NeighborPosition.Y < 0 || 
-			NeighborPosition.X > TerrainConfig->SectorSizeInCells || 
-			NeighborPosition.Y > TerrainConfig->SectorSizeInCells)
-		{
-			continue;
-		}
-		
-		const int32 NeighborVertexIndex { GetVertexIndex(NeighborPosition) };
-		
-		if (
-			const uint8 NeighborBiomeIndex { SectorRenderData.GroundMeshRenderData.PrimaryBiomeIndexArray[NeighborVertexIndex] }; 
-			NeighborBiomeIndex != PrimaryBiomeIndex)
-		{
-			return { true, NeighborBiomeIndex };
-		}
-	}
-	
-	return { false, PrimaryBiomeIndex };
+	return GridPosition.Y * VerticesPerRow + GridPosition.X;
 }

@@ -33,40 +33,15 @@ UTerrainConfig::UTerrainConfig()
 				},
 			}
 		},
-	},
-	bDebugBiomes { false },
-	BiomePeriod { 10000.0f },
-	BiomeDefinitionArray { 
-		{
-			{
-				TEXT("b0_grass"),
-				{ 0.0f, 1.0f, 0.0f, 1.0f },
-			},
-			{
-				TEXT("b1_moss"),
-				{ 1.0f, 1.0f, 0.0f, 1.0f },
-			},
-			{
-				TEXT("b2_lichen"),
-				{ 0.2f, 0.2f, 0.2f, 1.0f },
-			},
-			{
-				TEXT("b3_redsands"),
-				{ 0.0f, 1.0f, 0.0f, 1.0f },
-			},
-			{
-				TEXT("b4_mountain"),
-				{ 1.0f, 1.0f, 0.0f, 1.0f },
-			},
-			{
-				TEXT("b5_snow"),
-				{ 0.2f, 0.2f, 0.2f, 1.0f },
-			},
-		} 
 	}
-{ }
+{}
 
 float UTerrainConfig::GetSectorSizeInCentimeters() const
 {
 	return CellSizeInCentimeters * SectorSizeInCells;
+}
+
+uint32 UTerrainConfig::GetSectorCellNum() const
+{
+	return SectorSizeInCells * SectorSizeInCells;
 }
