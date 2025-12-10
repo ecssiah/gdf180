@@ -1,15 +1,9 @@
 #include "TerrainGenerator.h"
 #include "Engine/TextureCube.h"
-#include "GameFramework/PlayerStart.h"
 #include "Kismet/GameplayStatics.h"
 #include "Utility/StaticMeshConstructor.h"
 
-const FIntPoint ATerrainGenerator::NeighborOffsetArray[8] {
-	{ -1,  0 }, {  1,  0 }, 
-	{  0, -1 }, {  0,  1 },
-	{ -1, -1 }, {  1, -1 }, 
-	{ -1,  1 }, {  1,  1 }
-};
+static TMap<int32, uint8> RegionIDToBiomeIndex;
 
 ATerrainGenerator::ATerrainGenerator()
 	:
@@ -54,33 +48,8 @@ void ATerrainGenerator::BeginPlay()
 		TerrainConfig->GetWorldSizeInCentimeters() / 2.0f, 
 		1000.0f 
 	};
-	
-	FActorSpawnParameters ActorSpawnParameters;
-	ActorSpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	const APlayerStart* PlayerStart {
-		GetWorld()->SpawnActor<APlayerStart>(
-			APlayerStart::StaticClass(),
-			SpawnLocation,
-			FRotator::ZeroRotator,
-			ActorSpawnParameters
-		)
-	};
-
-	if (!PlayerStart)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Failed to spawn PlayerStart"));
-		
-		return;
-	}
-
-	if (
-		AActor* PlayerPawn { UGameplayStatics::GetPlayerPawn(GetWorld(), 0) }; 
-		PlayerPawn
-	) {
-		PlayerPawn->SetActorLocation(PlayerStart->GetActorLocation());
-		PlayerPawn->SetActorRotation(PlayerStart->GetActorRotation());
-	}
+	SetPlayerPosition(SpawnLocation);
 }
 
 TObjectPtr<UTerrainConfig> ATerrainGenerator::LoadTerrainConfig(const TCHAR* Path)
@@ -475,23 +444,110 @@ void ATerrainGenerator::RemoveExpiredSectors(const TSet<FIntPoint>& VisibleSecto
 	}
 }
 
-uint8 ATerrainGenerator::SampleBiomeIndex(const FVector2f& WorldPosition) const
+int32 ATerrainGenerator::GetRegionID(const FVector2f& WorldPosition) const
 {
-	const int32 BiomeCount { BiomeSet->BiomeDefinitionArray.Num() };
+	constexpr int32 RegionBucketCount { 1'000'000 };
 	
-	const float VoronoiLabel { BiomeNoise.GetNoise(WorldPosition.X, WorldPosition.Y) };
-	const float VoronoiLabelNormalized { 0.5f * (VoronoiLabel + 1.0f) };
+	const float RegionLabel { BiomeNoise.GetNoise(WorldPosition.X, WorldPosition.Y) };
+	const float RegionLabelNormalized { 0.5f * (RegionLabel + 1.0f) };
 	
-	const uint8 BiomeIndex { 
-		static_cast<uint8> (
-			FMath::Clamp(
-				FMath::FloorToInt(VoronoiLabelNormalized * BiomeCount),
-				0,
-				BiomeCount - 1
-			)
+	const int32 RegionID {
+		FMath::Clamp(
+			FMath::FloorToInt(RegionLabelNormalized * RegionBucketCount),
+			0,
+			RegionBucketCount - 1
+		) 
+	};
+
+	return RegionID;
+}
+
+uint8 ATerrainGenerator::GetOrAssignRingIndexForRegionID(const int32 RegionID, const FVector2f& RegionPosition) {
+	if (const uint8* RingIndex { RegionIDToRingIndex.Find(RegionID) })
+	{
+		return *RingIndex;
+	}
+
+	RegionIDToRegionPosition.Add(RegionID, RegionPosition);
+
+	const float DistanceToCenter {
+		FVector2f::Distance(
+			RegionPosition,
+			FVector2f { 
+				TerrainConfig->GetWorldSizeInCentimeters() / 2.0f, 
+				TerrainConfig->GetWorldSizeInCentimeters() / 2.0f 
+			}
 		)
 	};
+
+	const FRingDefinition& Ring { BiomeSet->GetRingDefinition(DistanceToCenter) };
+
+	uint8 RingIndex { 0 };
+
+	for (int32 Index { 0 }; Index < BiomeSet->RingDefinitionArray.Num(); ++Index)
+	{
+		const FRingDefinition& Candidate = BiomeSet->RingDefinitionArray[Index];
+
+		if (&Candidate == &Ring)
+		{
+			RingIndex = static_cast<uint8>(Index);
+			
+			break;
+		}
+	}
+
+	RegionIDToRingIndex.Add(RegionID, RingIndex);
+
+	return RingIndex;
+}
+
+uint8 ATerrainGenerator::SampleBiomeIndex(const FVector2f& WorldPosition)
+{
+	const int32 RegionID { GetRegionID(WorldPosition) };
+	const uint8 RingIndex { GetOrAssignRingIndexForRegionID(RegionID, WorldPosition) };
 	
+	const FRingDefinition& RingDefinition { BiomeSet->RingDefinitionArray[RingIndex] };
+	
+	if (const uint8* CachedBiome { RegionIDToBiomeIndex.Find(RegionID) })
+	{
+		return *CachedBiome;
+	}
+
+	const float R01 {
+		0.5f * (BiomeNoise.GetNoise(WorldPosition.X, WorldPosition.Y) + 1.0f)
+	};
+
+	float TotalWeight { 0.0f };
+	
+	for (const auto& Pair : RingDefinition.BiomeWeightMap)
+	{
+		TotalWeight += Pair.Value;
+	}
+
+	const float Target { R01 * TotalWeight };
+
+	float Accumulator { 0.0f };
+	uint8 BiomeIndex { 0 };
+
+	for (const auto& Pair : RingDefinition.BiomeWeightMap)
+	{
+		Accumulator += Pair.Value;
+
+		if (Target <= Accumulator)
+		{
+			BiomeIndex = Pair.Key;
+			break;
+		}
+	}
+
+	if (!RingDefinition.BiomeWeightMap.Contains(BiomeIndex))
+	{
+		BiomeIndex =
+			RingDefinition.BiomeWeightMap.CreateConstIterator()->Key;
+	}
+
+	RegionIDToBiomeIndex.Add(RegionID, BiomeIndex);
+
 	return BiomeIndex;
 }
 
@@ -500,4 +556,18 @@ int32 ATerrainGenerator::GetVertexIndex(const FIntPoint GridPosition) const
     const int32 VerticesPerRow { TerrainConfig->SectorSizeInCells + 1 };
 	
 	return GridPosition.Y * VerticesPerRow + GridPosition.X;
+}
+
+void ATerrainGenerator::SetPlayerPosition(const FVector& WorldPosition) const
+{
+	APawn* PlayerPawn { UGameplayStatics::GetPlayerPawn(GetWorld(), 0) };
+
+	if (!PlayerPawn)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Player pawn not found."));
+		return;
+	}
+
+	PlayerPawn->SetActorLocation(WorldPosition);
+	PlayerPawn->SetActorRotation(FRotator::ZeroRotator);
 }

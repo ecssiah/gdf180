@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "BiomeDefinition.h"
+#include "RingDefinition.h"
 #include "Engine/DataAsset.h"
 #include "BiomeSet.generated.h"
 
@@ -22,5 +23,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<FBiomeDefinition> BiomeDefinitionArray;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TArray<FRingDefinition> RingDefinitionArray;
+	
 	float GetFrequency() const;
+	
+	const FRingDefinition& GetRingDefinition(const float Radius) const;
 };

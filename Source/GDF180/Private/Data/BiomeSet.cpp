@@ -31,11 +31,61 @@ UBiomeSet::UBiomeSet()
 				{ 1.0f, 1.0f, 1.0f, 1.0f },
 			},
 		} 
+	},
+	RingDefinitionArray {
+		{
+			TEXT("Ring 0"),
+			0.0f,
+			5000.0f,
+			{
+				{ 0, 1.0f },
+			}
+		},
+		{
+			TEXT("Ring 1"),
+			5000.0f,
+			10000.0f,
+			{
+				{ 0, 0.5f },
+				{ 1, 0.5f },
+			}
+		},
+		{
+			TEXT("Ring 2"),
+			10000.0f,
+			60000.0f,
+			{
+				{ 2, 0.25f },
+				{ 3, 0.25f },
+				{ 4, 0.25f },
+				{ 5, 0.25f },
+			}
+		}
 	}
 {}
 
 float UBiomeSet::GetFrequency() const
 {
 	return 1.0f / BiomePeriod;
+}
+
+const FRingDefinition& UBiomeSet::GetRingDefinition(const float Radius) const
+{
+	const FRingDefinition* RingDefinition { 
+		RingDefinitionArray.FindByPredicate(
+			[&](const FRingDefinition& Candidate)
+			{
+				return Radius >= Candidate.InnerRadius &&
+					Radius < Candidate.OuterRadius;
+			}
+		) 
+	};
+
+	if (RingDefinition)
+	{
+		return *RingDefinition;
+	}
+	
+	return RingDefinitionArray.Last();
 }
 
